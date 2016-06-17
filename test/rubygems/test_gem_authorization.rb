@@ -2,9 +2,9 @@
 require 'rubygems/test_case'
 require 'rubygems'
 require 'rubygems/command'
-require 'rubygems/gemcutter_utilities'
+require 'rubygems/authorization'
 
-class TestGemGemcutterUtilities < Gem::TestCase
+class TestGemAuthorization < Gem::TestCase
 
   def setup
     super
@@ -13,7 +13,7 @@ class TestGemGemcutterUtilities < Gem::TestCase
     Gem.configuration.rubygems_api_key = nil
 
     @cmd = Gem::Command.new '', 'summary'
-    @cmd.extend Gem::GemcutterUtilities
+    @authorization = Authorization.new.for_command(@cmd)
   end
 
   def teardown
@@ -39,7 +39,7 @@ class TestGemGemcutterUtilities < Gem::TestCase
 
     Gem.configuration.load_api_keys
 
-    assert_equal 'EYKEY', @cmd.api_key
+    assert_equal 'EYKEY', @authorization.api_key
   end
 
   def test_api_key
@@ -52,7 +52,7 @@ class TestGemGemcutterUtilities < Gem::TestCase
 
     Gem.configuration.load_api_keys
 
-    assert_equal 'KEY', @cmd.api_key
+    assert_equal 'KEY', @authorization.api_key
   end
 
   def test_api_key_override
@@ -65,26 +65,26 @@ class TestGemGemcutterUtilities < Gem::TestCase
 
     Gem.configuration.load_api_keys
 
-    @cmd.add_key_option
+    @authorization.add_key_option
     @cmd.handle_options %w[--key other]
 
-    assert_equal 'OTHER', @cmd.api_key
+    assert_equal 'OTHER', @authorization.api_key
   end
 
   def test_host
-    assert_equal 'https://rubygems.org', @cmd.host
+    assert_equal 'https://rubygems.org', @authorization.host
   end
 
   def test_host_RUBYGEMS_HOST
     ENV['RUBYGEMS_HOST'] = 'https://other.example'
 
-    assert_equal 'https://other.example', @cmd.host
+    assert_equal 'https://other.example', @authorization.host
   end
 
   def test_host_RUBYGEMS_HOST_empty
     ENV['RUBYGEMS_HOST'] = ''
 
-    assert_equal 'https://rubygems.org', @cmd.host
+    assert_equal 'https://rubygems.org', @authorization.host
   end
 
   def test_sign_in
@@ -207,9 +207,9 @@ class TestGemGemcutterUtilities < Gem::TestCase
 
     use_ui @sign_in_ui do
       if args.length > 0 then
-        @cmd.sign_in(*args)
+        @authorization.sign_in(*args)
       else
-        @cmd.sign_in
+        @authorization.sign_in
       end
     end
   end
@@ -223,12 +223,12 @@ class TestGemGemcutterUtilities < Gem::TestCase
     Gem.configuration.load_api_keys
 
     assert_equal 'a5fdbb6ba150cbb83aad2bb2fede64cf040453903',
-                 @cmd.verify_api_key(:other)
+                 @authorization.verify_api_key(:other)
   end
 
   def test_verify_missing_api_key
     assert_raises Gem::MockGemUi::TermError do
-      @cmd.verify_api_key :missing
+      @authorization.verify_api_key :missing
     end
   end
 

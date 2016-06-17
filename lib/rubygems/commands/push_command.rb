@@ -1,12 +1,11 @@
 # frozen_string_literal: true
 require 'rubygems/command'
 require 'rubygems/local_remote_options'
-require 'rubygems/gemcutter_utilities'
+require 'rubygems/authorization'
 require 'rubygems/package'
 
 class Gem::Commands::PushCommand < Gem::Command
   include Gem::LocalRemoteOptions
-  include Gem::GemcutterUtilities
 
   def description # :nodoc:
     <<-EOF
@@ -26,11 +25,13 @@ command.  For further discussion see the help for the yank command.
     "#{program_name} GEM"
   end
 
-  def initialize
-    super 'push', 'Push a gem up to the gem server', :host => self.host
+  def initialize(authorization = Authorization.new)
+    super 'push', 'Push a gem up to the gem server', :host => authorization.host
+
+    @authorization = authorization.for_command(self)
 
     add_proxy_option
-    add_key_option
+    @authorization.add_key_option
 
     add_option('--host HOST',
                'Push to another gemcutter-compatible host') do |value, options|
@@ -43,7 +44,7 @@ command.  For further discussion see the help for the yank command.
   def execute
     @host = options[:host]
 
-    sign_in @host
+    @authorization.sign_in @host
 
     send_gem get_one_gem_name
   end
@@ -89,14 +90,14 @@ You can upgrade or downgrade to the latest release version with:
 
     say "Pushing gem to #{@host || Gem.host}..."
 
-    response = rubygems_api_request(*args) do |request|
+    response = @authorization.rubygems_api_request(*args) do |request|
       request.body = Gem.read_binary name
       request.add_field "Content-Length", request.body.size
       request.add_field "Content-Type",   "application/octet-stream"
-      request.add_field "Authorization",  api_key
+      request.add_field "Authorization",  @authorization.api_key
     end
 
-    with_response response
+    @authorization.with_response response
   end
 
 end

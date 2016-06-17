@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 require 'rubygems/remote_fetcher'
 
-##
-# Utility methods for using the RubyGems API.
+class Authorization
+  def for_command(command)
+    @command = command
 
-module Gem::GemcutterUtilities
+    self
+  end
+
 
   # TODO: move to Gem::Command
   OptionParser.accept Symbol do |value|
@@ -17,19 +20,19 @@ module Gem::GemcutterUtilities
   # Add the --key option
 
   def add_key_option
-    add_option('-k', '--key KEYNAME', Symbol,
+    @command.add_option('-k', '--key KEYNAME', Symbol,
                'Use the given API key',
                'from ~/.gem/credentials') do |value,options|
-      options[:key] = value
-    end
+                 options[:key] = value
+               end
   end
 
   ##
   # The API key from the command options or from the user's configuration.
 
   def api_key
-    if options[:key] then
-      verify_api_key options[:key]
+    if @command.options[:key] then
+      verify_api_key @command.options[:key]
     elsif Gem.configuration.api_keys.key?(host)
       Gem.configuration.api_keys[host]
     else
@@ -43,13 +46,13 @@ module Gem::GemcutterUtilities
 
   def host
     configured_host = Gem.host unless
-      Gem.configuration.disable_default_gem_server
+    Gem.configuration.disable_default_gem_server
 
     @host ||=
       begin
         env_rubygems_host = ENV['RUBYGEMS_HOST']
         env_rubygems_host = nil if
-          env_rubygems_host and env_rubygems_host.empty?
+        env_rubygems_host and env_rubygems_host.empty?
 
         env_rubygems_host|| configured_host
       end
@@ -65,8 +68,8 @@ module Gem::GemcutterUtilities
 
     self.host = host if host
     unless self.host
-      alert_error "You must specify a gem server"
-      terminate_interaction 1 # TODO: question this
+      @command.alert_error "You must specify a gem server"
+      @command.terminate_interaction 1 # TODO: question this
     end
 
     if allowed_push_host
@@ -74,8 +77,8 @@ module Gem::GemcutterUtilities
       host_uri         = URI.parse(self.host)
 
       unless (host_uri.scheme == allowed_host_uri.scheme) && (host_uri.host == allowed_host_uri.host)
-        alert_error "#{self.host.inspect} is not allowed by the gemspec, which only allows #{allowed_push_host.inspect}"
-        terminate_interaction 1
+        @command.alert_error "#{self.host.inspect} is not allowed by the gemspec, which only allows #{allowed_push_host.inspect}"
+        @command.terminate_interaction 1
       end
     end
 
@@ -100,13 +103,13 @@ module Gem::GemcutterUtilities
                     sign_in_host
                   end
 
-    say "Enter your #{pretty_host} credentials."
-    say "Don't have an account yet? " +
-        "Create one at #{sign_in_host}/sign_up"
+    @command.say "Enter your #{pretty_host} credentials."
+    @command.say "Don't have an account yet? " +
+      "Create one at #{sign_in_host}/sign_up"
 
-    email    =              ask "   Email: "
-    password = ask_for_password "Password: "
-    say "\n"
+    email    =              @command.ask "   Email: "
+    password = @command.ask_for_password "Password: "
+    @command.say "\n"
 
     response = rubygems_api_request(:get, "api/v1/api_key",
                                     sign_in_host) do |request|
@@ -114,7 +117,7 @@ module Gem::GemcutterUtilities
     end
 
     with_response response do |resp|
-      say "Signed in."
+      @command.say "Signed in."
       set_api_key host, resp.body
     end
   end
@@ -127,8 +130,8 @@ module Gem::GemcutterUtilities
     if Gem.configuration.api_keys.key? key then
       Gem.configuration.api_keys[key]
     else
-      alert_error "No such API key. Please add it to your configuration (done automatically on initial `gem push`)."
-      terminate_interaction 1 # TODO: question this
+      @command.alert_error "No such API key. Please add it to your configuration (done automatically on initial `gem push`)."
+      @command.terminate_interaction 1 # TODO: question this
     end
   end
 
@@ -145,14 +148,14 @@ module Gem::GemcutterUtilities
       if block_given? then
         yield response
       else
-        say response.body
+        @command.say response.body
       end
     else
       message = response.body
       message = "#{error_prefix}: #{message}" if error_prefix
 
-      say message
-      terminate_interaction 1 # TODO: question this
+      @command.say message
+      @command.terminate_interaction 1 # TODO: question this
     end
   end
 
@@ -164,5 +167,5 @@ module Gem::GemcutterUtilities
     end
   end
 
-end
 
+end
