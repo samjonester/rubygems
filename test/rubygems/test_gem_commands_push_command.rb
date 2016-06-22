@@ -48,7 +48,8 @@ class TestGemCommandsPushCommand < Gem::TestCase
   def send_battery
     use_ui @ui do
       @cmd.instance_variable_set :@host, @host
-      @cmd.send_gem(@path)
+      @cmd.options[:args] = [@path]
+      @cmd.execute
     end
 
     assert_match %r{Pushing gem to #{@host}...}, @ui.output
@@ -95,19 +96,6 @@ class TestGemCommandsPushCommand < Gem::TestCase
                  @fetcher.last_request["Content-Type"]
   end
 
-  def test_sending_when_default_host_disabled
-    Gem.configuration.disable_default_gem_server = true
-    response = "You must specify a gem server"
-
-    assert_raises Gem::MockGemUi::TermError do
-      use_ui @ui do
-        @cmd.send_gem(@path)
-      end
-    end
-
-    assert_match response, @ui.error
-  end
-
   def test_sending_when_default_host_disabled_with_override
     ENV["RUBYGEMS_HOST"] = @host
     Gem.configuration.disable_default_gem_server = true
@@ -126,13 +114,6 @@ class TestGemCommandsPushCommand < Gem::TestCase
 
     @response = "Successfully registered gem: freebird (1.0.1)"
     @fetcher.data["#{@host}/api/v1/gems"]  = [@response, 200, 'OK']
-    send_battery
-  end
-
-  def test_sending_gem
-    @response = "Successfully registered gem: freewill (1.0.0)"
-    @fetcher.data["#{@host}/api/v1/gems"]  = [@response, 200, 'OK']
-
     send_battery
   end
 
@@ -159,37 +140,6 @@ class TestGemCommandsPushCommand < Gem::TestCase
     @response = "Successfully registered gem: freebird (1.0.1)"
     @fetcher.data["#{@host}/api/v1/gems"]  = [@response, 200, 'OK']
     send_battery
-  end
-
-  def test_sending_gem_to_disallowed_default_host
-    @spec, @path = util_gem "freebird", "1.0.1" do |spec|
-      spec.metadata['allowed_push_host'] = "https://privategemserver.example"
-    end
-
-    response = %{ERROR:  "#{@host}" is not allowed by the gemspec, which only allows "https://privategemserver.example"}
-
-    assert_raises Gem::MockGemUi::TermError do
-      send_battery
-    end
-
-    assert_match response, @ui.error
-  end
-
-  def test_sending_gem_to_disallowed_push_host
-    @host = "https://anotherprivategemserver.example"
-    push_host = "https://privategemserver.example"
-
-    @spec, @path = util_gem "freebird", "1.0.1" do |spec|
-      spec.metadata['allowed_push_host'] = push_host
-    end
-
-    response = "ERROR:  \"#{@host}\" is not allowed by the gemspec, which only allows \"#{push_host}\""
-
-    assert_raises Gem::MockGemUi::TermError do
-      send_battery
-    end
-
-    assert_match response, @ui.error
   end
 
   def test_sending_gem_defaulting_to_allowed_push_host

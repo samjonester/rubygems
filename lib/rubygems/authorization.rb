@@ -2,19 +2,12 @@
 require 'rubygems/remote_fetcher'
 
 class Authorization
-  def for_command(command)
-    @command = command
-
-    self
-  end
-
+  attr_writer :host, :command
 
   # TODO: move to Gem::Command
   OptionParser.accept Symbol do |value|
     value.to_sym
   end
-
-  attr_writer :host
 
   ##
   # Add the --key option

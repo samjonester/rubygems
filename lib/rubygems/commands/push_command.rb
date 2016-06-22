@@ -25,10 +25,11 @@ command.  For further discussion see the help for the yank command.
     "#{program_name} GEM"
   end
 
-  def initialize(authorization = Authorization.new)
-    super 'push', 'Push a gem up to the gem server', :host => authorization.host
+  def initialize
+    @authorization = Authorization.new
+    @authorization.command = self
 
-    @authorization = authorization.for_command(self)
+    super 'push', 'Push a gem up to the gem server', :host => @authorization.host
 
     add_proxy_option
     @authorization.add_key_option

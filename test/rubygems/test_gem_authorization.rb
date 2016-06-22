@@ -3,6 +3,7 @@ require 'rubygems/test_case'
 require 'rubygems'
 require 'rubygems/command'
 require 'rubygems/authorization'
+require 'net/http'
 
 class TestGemAuthorization < Gem::TestCase
 
@@ -13,12 +14,14 @@ class TestGemAuthorization < Gem::TestCase
     Gem.configuration.rubygems_api_key = nil
 
     @cmd = Gem::Command.new '', 'summary'
-    @authorization = Authorization.new.for_command(@cmd)
+    @authorization = Authorization.new
+    @authorization.command = @cmd
   end
 
   def teardown
     ENV['RUBYGEMS_HOST'] = nil
     Gem.configuration.rubygems_api_key = nil
+    Gem.configuration.disable_default_gem_server = false
 
     super
   end
@@ -86,6 +89,40 @@ class TestGemAuthorization < Gem::TestCase
 
     assert_equal 'https://rubygems.org', @authorization.host
   end
+
+  def test_rubygems_api_request_when_no_host
+    Gem.configuration.disable_default_gem_server = true
+    @authorization.host = nil
+    response = "You must specify a gem server"
+
+    assert_raises Gem::MockGemUi::TermError do
+      use_ui @ui do
+        @authorization.rubygems_api_request(Net::HTTP::Post, 'foobar')
+      end
+    end
+
+    assert_match response, @ui.error
+  end
+
+  def test_api_request_with_disallowed_push_host
+    host = "https://anotherprivategemserver.example"
+    push_host = "https://privategemserver.example"
+
+    @spec, @path = util_gem "freebird", "1.0.1" do |spec|
+      spec.metadata['allowed_push_host'] = push_host
+    end
+
+    response = "ERROR:  \"#{host}\" is not allowed by the gemspec, which only allows \"#{push_host}\""
+
+    assert_raises Gem::MockGemUi::TermError do
+      use_ui @ui do
+        @authorization.rubygems_api_request(Net::HTTP::Post, 'foobar', host, push_host)
+      end
+    end
+
+    assert_match response, @ui.error
+  end
+
 
   def test_sign_in
     api_key     = 'a5fdbb6ba150cbb83aad2bb2fede64cf040453903'
